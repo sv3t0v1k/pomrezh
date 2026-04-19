@@ -1,0 +1,300 @@
+/* Контейнер для фейерверка */
+.fireworks-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.9);
+    display: none;
+    transition: opacity 1s ease-in-out;
+}
+
+.fireworks-container.active {
+    display: block;
+}
+
+/* Стили для частиц фейерверка */
+.firework {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    will-change: transform;
+    transform-origin: center center;
+    box-shadow: 0 0 8px currentColor;
+}
+
+.firework::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    box-shadow: 0 0 15px 2px currentColor;
+    animation: pulse 0.8s ease-out infinite;
+}
+
+/* Анимация пульсации для частиц */
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(2);
+        opacity: 0;
+    }
+}
+
+/* Анимация взрыва */
+@keyframes explode {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    40% {
+        opacity: 0.9;
+    }
+    100% {
+        transform: scale(0.1);
+        opacity: 0;
+    }
+}
+
+/* Анимация движения частиц */
+@keyframes move {
+    0% {
+        transform: translate(0, 0) scale(1);
+    }
+    50% {
+        transform: translate(calc(var(--dx) * 0.5), calc(var(--dy) * 0.5)) scale(1.2);
+    }
+    75% {
+        transform: translate(calc(var(--dx) * 0.75), calc(var(--dy) * 0.75)) scale(0.8);
+    }
+    100% {
+        transform: translate(var(--dx), var(--dy)) scale(0.1);
+    }
+}
+
+/* Анимация запуска */
+@keyframes launch {
+    0% {
+        transform: translateY(100vh) scale(0.5);
+    }
+    50% {
+        transform: translateY(50vh) scale(0.75);
+    }
+    100% {
+        transform: translateY(var(--launch-height)) scale(1);
+    }
+}
+
+.rocket {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 
+        0 0 10px 2px #fff,
+        0 0 20px 5px currentColor;
+    will-change: transform;
+}
+
+/* Стили для финального сообщения на втором экране */
+.ending-message {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 1s ease-in-out;
+}
+
+.ending-message.active {
+    display: flex;
+    opacity: 1;
+}
+
+/* Добавляем плавные переходы для колонок */
+.left-column,
+.right-column {
+    transition: opacity 1s ease-in-out;
+}
+
+.ending-message-content {
+    text-align: center;
+    padding: 40px;
+    animation: fadeInScale 1s ease-out forwards;
+}
+
+.ending-message h1 {
+    font-size: 120px;
+    color: #4CAF50;
+    margin-bottom: 30px;
+    text-transform: uppercase;
+    font-weight: bold;
+    letter-spacing: 4px;
+    text-shadow: 
+        0 0 20px rgba(76, 175, 80, 0.3),
+        0 0 40px rgba(76, 175, 80, 0.2);
+    font-family: 'Muller', sans-serif;
+}
+
+.ending-message p {
+    font-size: 48px;
+    color: #ffffff;
+    opacity: 0.8;
+    margin-top: 20px;
+    font-family: 'Helios', sans-serif;
+}
+
+@keyframes fadeInScale {
+    0% {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Стили для финального блока в основном окне */
+.final-action {
+    background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+    border: 2px solid #4CAF50;
+    margin-top: 30px;
+    position: relative;
+    overflow: hidden;
+}
+
+.final-action::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, 
+        rgba(76, 175, 80, 0.1) 0%, 
+        rgba(76, 175, 80, 0) 50%, 
+        rgba(76, 175, 80, 0.1) 100%);
+    animation: shine 2s infinite;
+}
+
+@keyframes shine {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.final-action .action-text {
+    font-size: 32px;
+    text-align: center;
+    color: #4CAF50;
+    text-transform: uppercase;
+    font-weight: bold;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+}
+
+.final-action .btn-go {
+    transform: scale(1.08);
+}
+
+.final-action .btn-go:hover {
+    transform: scale(1.12);
+}
+
+.final-action .btn-delete {
+    display: none;
+}
+
+/* Стили для заставки */
+.splash-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999;
+    opacity: 1;
+    transition: opacity 1s ease-out;
+}
+
+.splash-screen.fade-out {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.splash-screen .logo {
+    width: 600px;
+    height: auto;
+    opacity: 0;
+    transform: scale(0.8);
+    animation: logoAppear 1s ease-out forwards,
+               logoPulse 2s ease-in-out infinite 1s,
+               logoFadeOut 1s ease-in forwards 4s;
+}
+
+@keyframes logoAppear {
+    0% {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes logoPulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes logoFadeOut {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(1.2);
+    }
+}
+
+/* Добавляем медиа-запрос для адаптивности на маленьких экранах */
+@media (max-width: 768px) {
+    .splash-screen .logo {
+        width: 80vw;
+        max-width: 600px;
+    }
+} 

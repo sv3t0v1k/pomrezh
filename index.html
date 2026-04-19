@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ПомРеж</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="css/fireworks.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.10.2/Sortable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <!-- Заставка -->
+    <div class="splash-screen" id="splashScreen">
+        <img src="logo.png" alt="Логотип" class="logo">
+    </div>
+
+    <div class="container">
+        <header class="header header--compact" aria-hidden="true"></header>
+
+        <div class="event-title" id="eventTitle">
+            <div class="event-title-row">
+                <span id="eventTitleText" class="event-title-text" role="heading" aria-level="1">Мероприятие</span>
+                <button type="button" id="editEventTitleBtn" class="edit-title-btn" title="Редактировать название" aria-label="Редактировать название мероприятия">✏️</button>
+                <input type="text" id="eventTitleInput" class="event-title-input" style="display: none;" aria-label="Название мероприятия" autocomplete="off" maxlength="200">
+            </div>
+            <div class="event-info">
+                <div class="total-actions">Всего действий: <span id="actions-count">0</span></div>
+                <div class="completed-actions">Выполнено: <span id="completed-count">0</span></div>
+            </div>
+        </div>
+
+        <div class="menu-bar" role="menubar" aria-label="Главное меню оператора">
+                    <div class="menu-item" data-menu="file" role="menuitem" tabindex="0">
+                        Файл
+                        <div class="dropdown-menu" id="fileMenu" role="menu">
+                            <div class="menu-option" data-action="newShow" role="menuitem">📁 Новое шоу</div>
+                            <div class="menu-option" data-action="openShow" role="menuitem">📂 Открыть шоу...</div>
+                            <div class="menu-option" data-action="saveShow" role="menuitem">💾 Сохранить</div>
+                            <div class="menu-option" data-action="saveShowAs" role="menuitem">💾 Сохранить как...</div>
+                            <div class="menu-divider"></div>
+                            <div class="menu-option" data-action="importExcel" role="menuitem">📥 Импорт Excel...</div>
+                            <div class="menu-divider"></div>
+                            <div class="menu-option" data-action="exit" role="menuitem">🚪 Выход</div>
+                        </div>
+                    </div>
+
+                    <div class="menu-item" data-menu="edit" role="menuitem" tabindex="0">
+                        Правка
+                        <div class="dropdown-menu" id="editMenu" role="menu">
+                            <div class="menu-option" data-action="addAction" role="menuitem">➕ Добавить действие</div>
+                            <div class="menu-option" data-action="addNote" role="menuitem">📝 Добавить заметку</div>
+                        </div>
+                    </div>
+
+                    <div class="menu-item" data-menu="monitors" role="menuitem" tabindex="0">
+                        Мониторы
+                        <div class="dropdown-menu" id="monitorsMenu" role="menu">
+                            <div class="menu-option" data-action="openStage" role="menuitem">🖥️ Stage (⌘1)</div>
+                            <div class="menu-option" data-action="openTech" role="menuitem">🛠️ Tech (⌘2)</div>
+                            <div class="menu-option" data-action="openSpeaker" role="menuitem">🎤 Speaker (⌘3)</div>
+                            <div class="menu-option" data-action="openPrompterWindow" role="menuitem">📜 Открыть окно суфлёра</div>
+                            <div class="menu-divider"></div>
+                            <div class="menu-option" data-action="refreshScreens" role="menuitem">🔄 Обновить все экраны</div>
+                            <div class="menu-option" data-action="openTechCustomization" role="menuitem">🛠️ Настройка экрана Tech</div>
+                            <div class="menu-option" data-action="openSpeakerCustomization" role="menuitem">🎤 Настройка экрана ведущего</div>
+                        </div>
+                    </div>
+
+                    <div class="menu-item" data-menu="osc" role="menuitem" tabindex="0">
+                        OSC
+                        <div class="dropdown-menu" id="oscMenu" role="menu">
+                            <div class="menu-option" data-action="toggleOsc" role="menuitem">
+                                <span id="oscMenuToggle">🔘 Включить OSC</span>
+                            </div>
+                            <div class="menu-divider"></div>
+                            <div class="menu-option" data-action="openOscSettings" role="menuitem">⚙️ Настройки OSC...</div>
+                            <div class="menu-option" data-action="testOsc" role="menuitem">🔍 Тест соединения</div>
+                        </div>
+                    </div>
+
+                    <div class="menu-item" data-menu="view" role="menuitem" tabindex="0">
+                        Вид
+                        <div class="dropdown-menu" id="viewMenu" role="menu">
+                            <div class="menu-option theme-option" data-action="themeDark" role="menuitem">🌙 Тёмная тема</div>
+                            <div class="menu-option theme-option" data-action="themeLight" role="menuitem">☀️ Светлая тема</div>
+                            <div class="menu-option theme-option" data-action="themeHighContrast" role="menuitem">⚡ Высокий контраст</div>
+                            <div class="menu-divider"></div>
+                            <div class="menu-option" data-action="toggleStickyBar" role="menuitem">🔧 Показать/скрыть sticky-блок</div>
+                        </div>
+                    </div>
+
+                    <div class="menu-item" data-menu="help" role="menuitem" tabindex="0">
+                        Помощь
+                        <div class="dropdown-menu" id="helpMenu" role="menu">
+                            <div class="menu-option" data-action="openGuide" role="menuitem">📖 Руководство оператора</div>
+                            <div class="menu-option" data-action="showHotkeys" role="menuitem">⌨️ Горячие клавиши</div>
+                            <div class="menu-divider"></div>
+                            <div class="menu-option" data-action="about" role="menuitem">ℹ️ О программе</div>
+                            <div class="menu-option" data-action="openLogs" role="menuitem">🐛 Логи</div>
+                        </div>
+                    </div>
+                </div>
+
+        <div class="operator-sticky-bar">
+            <div class="sticky-cues operator-cue-cards">
+                <div class="operator-cue-card operator-cue-card--now current-cue-card">
+                    <div class="operator-cue-card-label cue-label">СЕЙЧАС</div>
+                    <div id="operator-card-now-body" class="operator-cue-card-body" aria-live="polite"></div>
+                </div>
+                <div class="operator-cue-card operator-cue-card--next next-cue-card">
+                    <div class="operator-cue-card-label cue-label">СЛЕДУЮЩИЙ</div>
+                    <div id="operator-card-next-body" class="operator-cue-card-body" aria-live="polite"></div>
+                </div>
+            </div>
+            <div class="operator-timer-compact">
+                <div class="timer-controls-compact" aria-live="polite">
+                    <div class="timer-display-compact" id="operatorTimerDisplay">00:00 / 00:00</div>
+                    <div class="timer-status-compact" id="operatorTimerStatus">● РАБОТА</div>
+                    <button id="timerPlayPauseBtn" class="timer-icon-btn" type="button" title="Пауза / Продолжить">
+                        <span class="timer-icon">⏹️</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="scenario-column">
+            <!-- Шаблон действия -->
+            <div class="action-item-template" style="display: none;">
+                <div class="action-controls">
+                    <button type="button" class="btn-move-up" title="Переместить вверх">↑</button>
+                    <button type="button" class="btn-move-down" title="Переместить вниз">↓</button>
+                    <button type="button" class="btn-delete" title="Удалить"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="action-content">
+                    <div class="action-header">
+                        <div class="action-number">#1</div>
+                    </div>
+                    <div class="action-text" contenteditable="true"></div>
+                    <div class="action-note-summary" style="display: none;" aria-label="Заметка cue"></div>
+                    <div class="action-notes-dropdown" style="display: none;"></div>
+                    <div class="action-notes"></div>
+                </div>
+                <div class="time-display inline-time-editor" data-placeholder="--:--"></div>
+                <div class="action-script" style="display: none;">
+                    <textarea class="script-textarea" rows="4" placeholder="Текст сценария (суфлер)"></textarea>
+                    <div class="script-controls">
+                        <button type="button" class="script-btn script-btn-auto" data-script-cmd="auto" data-action="scriptAutoToggle" title="Автопрокрутка (только для cue в эфире)">▶️ Авто</button>
+                        <button type="button" class="script-btn" data-script-cmd="reset" title="Прокрутка в начало">↺ В начало</button>
+                        <button type="button" class="script-btn script-btn-fit" data-script-cmd="fit" title="Подобрать скорость по длительности cue">⏱ По времени</button>
+                        <div class="script-speed" title="Скорость автопрокрутки (доля текста в секунду)">
+                            <span aria-hidden="true">🐢</span>
+                            <input type="range" class="script-speed-range" min="0.005" max="0.15" step="0.001" value="0.05" />
+                            <span aria-hidden="true">🐇</span>
+                        </div>
+                        <span class="script-progress" aria-live="polite">0%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="operator-container">
+                <input type="file" accept=".xls,.xlsx" id="file-input" hidden>
+                <input type="file" id="loadShowFileInput" accept=".json,.show.json,application/json" hidden>
+
+                <!-- Список событий -->
+                <div id="scenario-items"></div>
+            </div>
+
+        </div>
+
+        <!-- Индикатор загрузки -->
+        <div id="loading-indicator" style="display: none;">
+            <div class="spinner"></div>
+            <div class="loading-text">Загрузка сценария...</div>
+        </div>
+
+        <!-- Сообщение об ошибке -->
+        <div id="error-message" class="error-message" style="display: none;">
+            <i class="fas fa-exclamation-circle"></i>
+            <span class="error-text"></span>
+        </div>
+
+        <!-- Область создания примечания -->
+        <div id="note-creator" class="note-creator" style="display: none;">
+            <div class="note-creator-header">
+                <span>Новое примечание</span>
+                <button class="btn-close-note" title="Закрыть"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="note draggable-note" contenteditable="true" data-placeholder="Введите текст примечания..." draggable="true"></div>
+            <div class="note-creator-footer">
+                <span class="note-hint">Перетащите примечание на нужное действие</span>
+            </div>
+        </div>
+
+        <div class="status-bar" aria-live="polite">
+            <div class="status-left">
+                <span id="statusShowName">Шоу: Без названия</span>
+                <span id="statusVersion">Версия: 1.0.3</span>
+                <span id="statusAutosave">Автосохранение: выкл</span>
+                <span id="statusScreens">📺 Экраны: 0</span>
+                <span id="statusTheme">🌙 Тёмная</span>
+                <span id="statusMode">🌐 Web</span>
+                <span id="statusFile">📝 Новое</span>
+            </div>
+            <div class="status-right">
+                <span id="statusOsc" class="status-osc inactive">○ OSC отключен</span>
+            </div>
+        </div>
+
+        <!-- Модальное окно OSC настроек -->
+        <div id="oscModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>🎛️ OSC настройки</h2>
+                    <button class="modal-close" id="closeOscModal" type="button" aria-label="Закрыть">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="modal-section">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="modalOscEnable">
+                            <span>Включить отправку OSC</span>
+                        </label>
+                    </div>
+
+                    <div class="modal-section">
+                        <h3>Подключение</h3>
+                        <div class="modal-row">
+                            <label for="modalOscRemoteIP">IP адрес:</label>
+                            <input type="text" id="modalOscRemoteIP" value="127.0.0.1" autocomplete="off">
+                        </div>
+                        <div class="modal-row">
+                            <label for="modalOscRemotePort">Порт:</label>
+                            <input type="number" id="modalOscRemotePort" value="7000" min="1" max="65535">
+                        </div>
+                    </div>
+
+                    <div class="modal-section">
+                        <h3>Глобальные команды</h3>
+                        <div class="modal-row">
+                            <label for="modalOscGlobalPause">Пауза:</label>
+                            <input type="text" id="modalOscGlobalPause" placeholder="/transport/pause" autocomplete="off">
+                        </div>
+                        <div class="modal-row">
+                            <label for="modalOscGlobalResume">Продолжить:</label>
+                            <input type="text" id="modalOscGlobalResume" placeholder="/transport/play" autocomplete="off">
+                        </div>
+                        <div class="modal-row">
+                            <label for="modalOscGlobalNext">Следующий cue:</label>
+                            <input type="text" id="modalOscGlobalNext" placeholder="/cue/next" autocomplete="off">
+                        </div>
+                        <div class="modal-row">
+                            <label for="modalOscGlobalShowEnd">Конец шоу:</label>
+                            <input type="text" id="modalOscGlobalShowEnd" placeholder="/show/end" autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button id="testOscModalBtn" class="btn-secondary" type="button">🔍 Тест OSC</button>
+                        <button id="saveOscModalBtn" class="btn-primary" type="button">Сохранить</button>
+                        <button id="cancelOscModalBtn" class="btn-secondary" type="button">Отмена</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="hotkeysModal" class="modal" style="display: none;">
+            <div class="modal-content hotkeys-modal">
+                <div class="modal-header">
+                    <h2>⌨️ Горячие клавиши</h2>
+                    <button class="modal-close" id="closeHotkeysModal" type="button" aria-label="Закрыть">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="hotkeys-section">
+                        <h3>Управление сценарием</h3>
+                        <div class="hotkey-row"><kbd>Space</kbd><span>Следующий cue</span></div>
+                        <div class="hotkey-row"><kbd>P</kbd><span>Пауза / Продолжить</span></div>
+                        <div class="hotkey-row"><kbd>↑</kbd><span>Навигация вверх</span></div>
+                        <div class="hotkey-row"><kbd>↓</kbd><span>Навигация вниз</span></div>
+                    </div>
+                    <div class="hotkeys-section">
+                        <h3>Файл</h3>
+                        <div class="hotkey-row"><kbd>⌘</kbd> + <kbd>S</kbd><span>Сохранить шоу</span></div>
+                        <div class="hotkey-row"><kbd>⌘</kbd> + <kbd>⇧</kbd> + <kbd>S</kbd><span>Сохранить как...</span></div>
+                        <div class="hotkey-row"><kbd>⌘</kbd> + <kbd>O</kbd><span>Открыть шоу</span></div>
+                    </div>
+                    <div class="hotkeys-section">
+                        <h3>Мониторы</h3>
+                        <div class="hotkey-row"><kbd>⌘</kbd> + <kbd>1</kbd><span>Stage экран</span></div>
+                        <div class="hotkey-row"><kbd>⌘</kbd> + <kbd>2</kbd><span>Tech экран</span></div>
+                        <div class="hotkey-row"><kbd>⌘</kbd> + <kbd>3</kbd><span>Speaker экран</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="aboutModal" class="modal" style="display: none;">
+            <div class="modal-content about-modal">
+                <div class="modal-header">
+                    <h2>ℹ️ О программе</h2>
+                    <button class="modal-close" id="closeAboutModal" type="button" aria-label="Закрыть">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="about-logo">🎬</div>
+                    <h3>ПомРеж</h3>
+                    <p>Версия: 1.0.3</p>
+                    <p>Профессиональная система управления сценарием мероприятия</p>
+                    <p>© 2026 ПомРеж</p>
+                    <p class="about-features">
+                        • Мультиэкран (Stage/Tech/Speaker)<br>
+                        • OSC интеграция<br>
+                        • Шоу-файлы<br>
+                        • Горячие клавиши<br>
+                        • Кастомизация экрана ведущего
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div id="speakerCustomizationModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>🎤 Настройка экрана ведущего</h2>
+                    <button class="modal-close" id="closeSpeakerCustomizationModal" type="button" aria-label="Закрыть">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="modal-section">
+                        <h3>Пресет макета</h3>
+                        <p class="speaker-modal-hint">Быстро переключает набор видимых блоков на экране ведущего.</p>
+                        <div class="modal-row">
+                            <label for="speakerLayoutPreset">Пресет:</label>
+                            <select id="speakerLayoutPreset" data-speaker-modal-field="speakerLayoutPreset">
+                                <option value="focus">Фокус</option>
+                                <option value="balanced">Сбалансированный</option>
+                                <option value="full">Полный</option>
+                                <option value="custom">Пользовательский</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-section">
+                        <h3>Основные элементы</h3>
+                        <p class="speaker-modal-hint">Основные cue-блоки и контент, на который смотрит ведущий в первую очередь.</p>
+                        <div class="customization-grid">
+                            <label><input type="checkbox" data-speaker-modal-field="showCurrent"> Текущий cue</label>
+                            <label><input type="checkbox" data-speaker-modal-field="showNext"> Следующий cue</label>
+                            <label><input type="checkbox" data-speaker-modal-field="showPrepare"> Подготовка</label>
+                            <label><input type="checkbox" data-speaker-modal-field="showNotes"> Заметки оператора</label>
+                            <label><input type="checkbox" data-speaker-modal-field="showScript"> Текст сценария (суфлер)</label>
+                        </div>
+                    </div>
+                    <div class="modal-section">
+                        <h3>Таймеры и индикаторы</h3>
+                        <p class="speaker-modal-hint">Вспомогательные индикаторы времени и статуса эфира.</p>
+                        <div class="customization-grid">
+                            <label><input type="checkbox" data-speaker-modal-field="showTimer"> Таймер (прошло/всего)</label>
+                            <label><input type="checkbox" data-speaker-modal-field="showCountdown"> Обратный отсчёт</label>
+                            <label><input type="checkbox" data-speaker-modal-field="showLiveIndicator"> Индикатор «В ЭФИРЕ»</label>
+                            <label><input type="checkbox" data-speaker-modal-field="showClock"> Текущее время</label>
+                        </div>
+                    </div>
+                    <div class="modal-section">
+                        <h3>Оформление</h3>
+                        <p class="speaker-modal-hint">Внешний вид экрана: логотип, размер шрифта и тема.</p>
+                        <div class="customization-grid">
+                            <label><input type="checkbox" data-speaker-modal-field="showLogo"> Логотип шоу</label>
+                        </div>
+                        <div class="modal-row" style="margin-top: 10px;">
+                            <label>Размер шрифта:</label>
+                            <select data-speaker-modal-field="fontSize">
+                                <option value="small">Мелкий</option>
+                                <option value="medium">Средний</option>
+                                <option value="large">Крупный</option>
+                                <option value="xlarge">Очень крупный</option>
+                            </select>
+                        </div>
+                        <div class="modal-row">
+                            <label>Тема:</label>
+                            <select data-speaker-modal-field="theme">
+                                <option value="dark">Тёмная</option>
+                                <option value="light">Светлая</option>
+                                <option value="highContrast">Высокий контраст</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-section">
+                        <h3>Строгая синхронизация</h3>
+                        <p class="speaker-modal-hint">Фиксирует параметры суфлёра одинаково для оператора и ведущего.</p>
+                        <label><input type="checkbox" data-speaker-modal-field="strictScriptSync"> 🔒 Точная синхронизация суфлёра</label>
+                        <label><input type="checkbox" data-speaker-modal-field="mirrorScript"> 🪞 Зеркальный режим суфлёра</label>
+                        <p id="strictSyncHint" style="margin:8px 0 0;opacity:.75;font-size:12px;">
+                            В строгом режиме параметры суфлёра фиксируются одинаково для оператора и ведущего.
+                        </p>
+                        <div id="strictSyncAdvancedSection" class="customization-grid" style="margin-top: 10px;">
+                            <label>Ширина, px <input type="number" data-speaker-modal-field="strictScriptWidthPx" min="320" max="1920" step="1"></label>
+                            <label>Высота, px <input type="number" data-speaker-modal-field="strictScriptHeightPx" min="180" max="1200" step="1"></label>
+                            <label>Шрифт, px <input type="number" data-speaker-modal-field="strictScriptFontSizePx" min="16" max="144" step="1"></label>
+                            <label>Line-height <input type="number" data-speaker-modal-field="strictScriptLineHeight" min="1" max="2.2" step="0.05"></label>
+                            <label>Отступ, px <input type="number" data-speaker-modal-field="strictScriptPaddingPx" min="4" max="80" step="1"></label>
+                        </div>
+                    </div>
+                    <div class="modal-section">
+                        <h3>Логотип</h3>
+                        <p class="speaker-modal-hint">Укажите URL логотипа и проверьте, как он выглядит на экране.</p>
+                        <input type="text" data-speaker-modal-field="logoUrl" placeholder="URL логотипа (например, /logo.png)" autocomplete="off">
+                        <div class="modal-row" style="margin-top: 8px;">
+                            <button id="previewLogoBtn" class="btn-secondary" type="button">Предпросмотр</button>
+                        </div>
+                        <div id="logoPreviewWrap" class="speaker-logo-preview" style="display:none;">
+                            <img id="speakerLogoPreviewImg" alt="Предпросмотр логотипа">
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button id="applySpeakerCustomizationBtn" class="btn-secondary" type="button">Применить</button>
+                        <button id="saveSpeakerCustomizationBtn" class="btn-primary" type="button">Сохранить</button>
+                        <button id="cancelSpeakerCustomizationBtn" class="btn-secondary" type="button">Отмена</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="techCustomizationModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>🛠️ Настройка экрана Tech</h2>
+                    <button class="modal-close" id="closeTechCustomizationModal" type="button" aria-label="Закрыть">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="modal-section">
+                        <h3>Пресет макета</h3>
+                        <p class="speaker-modal-hint">Быстро переключает стандартные варианты отображения для технического экрана.</p>
+                        <div class="modal-row">
+                            <label for="techLayoutPreset">Пресет:</label>
+                            <select id="techLayoutPreset" data-tech-modal-field="layoutPreset">
+                                <option value="compact">Компактный</option>
+                                <option value="standard">Стандартный</option>
+                                <option value="full">Полный</option>
+                                <option value="custom">Пользовательский</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-section">
+                        <h3>Основные элементы</h3>
+                        <p class="speaker-modal-hint">Контент cue-линии для работы техслужбы во время шоу.</p>
+                        <div class="customization-grid">
+                            <label><input type="checkbox" data-tech-modal-field="showCurrent"> Показывать текущий cue</label>
+                            <label><input type="checkbox" data-tech-modal-field="showNext"> Показывать следующий cue</label>
+                            <label><input type="checkbox" data-tech-modal-field="showPrepare"> Показывать подготовку</label>
+                            <label><input type="checkbox" data-tech-modal-field="showNotes"> Показывать заметки к текущему cue</label>
+                        </div>
+                    </div>
+                    <div class="modal-section">
+                        <h3>Таймеры и индикаторы</h3>
+                        <p class="speaker-modal-hint">Временные блоки и индикаторы для контроля ритма эфира.</p>
+                        <div class="customization-grid">
+                            <label><input type="checkbox" data-tech-modal-field="showTimer"> Показывать таймер шоу</label>
+                            <label><input type="checkbox" data-tech-modal-field="showCountdown"> Показывать обратный отсчёт</label>
+                            <label><input type="checkbox" data-tech-modal-field="showClock"> Показывать текущее время</label>
+                            <label><input type="checkbox" data-tech-modal-field="showLiveIndicator"> Показывать индикатор «В эфире»</label>
+                        </div>
+                    </div>
+                    <div class="modal-section">
+                        <h3>Оформление</h3>
+                        <p class="speaker-modal-hint">Настройка размера текста и брендирования экрана Tech.</p>
+                        <div class="modal-row">
+                            <label>Размер шрифта:</label>
+                            <select data-tech-modal-field="fontSize">
+                                <option value="small">Мелкий</option>
+                                <option value="medium">Средний</option>
+                                <option value="large">Крупный</option>
+                                <option value="xlarge">Очень крупный</option>
+                            </select>
+                        </div>
+                        <input type="text" data-tech-modal-field="logoUrl" placeholder="URL логотипа (например, /logo.png)" autocomplete="off">
+                        <div class="modal-row" style="margin-top: 8px;">
+                            <button id="previewTechLogoBtn" class="btn-secondary" type="button">Предпросмотр</button>
+                        </div>
+                        <div id="techLogoPreviewWrap" class="speaker-logo-preview" style="display:none;">
+                            <img id="techLogoPreviewImg" alt="Предпросмотр логотипа Tech">
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button id="applyTechCustomizationBtn" class="btn-secondary" type="button">Применить</button>
+                        <button id="saveTechCustomizationBtn" class="btn-primary" type="button">Сохранить</button>
+                        <button id="cancelTechCustomizationBtn" class="btn-secondary" type="button">Отмена</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="cueContextMenu" class="context-menu" style="display: none;">
+            <button class="context-menu-item" type="button" data-action="openCueOscSettings">🎛️ Настройка OSC...</button>
+            <button class="context-menu-item" type="button" data-action="addCueNote">📝 Добавить заметку</button>
+            <button class="context-menu-item" type="button" data-action="duplicateCue">📄 Дублировать</button>
+            <button class="context-menu-item" type="button" data-action="moveAfterActive">➡️ Поставить следующим</button>
+            <button class="context-menu-item" type="button" data-action="moveCueUp">⬆️ Переместить вверх</button>
+            <button class="context-menu-item" type="button" data-action="moveCueDown">⬇️ Переместить вниз</button>
+            <button class="context-menu-item danger" type="button" data-action="deleteCue">🗑️ Удалить</button>
+        </div>
+
+        <div id="cueNoteModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>📝 Добавить заметку к cue</h2>
+                    <button class="modal-close" id="closeCueNoteModal" type="button" aria-label="Закрыть">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="cueNoteListWrap" class="cue-note-list-wrap" style="display:none;">
+                        <div id="cueNoteList" class="cue-note-list"></div>
+                    </div>
+                    <div class="modal-row" style="align-items: flex-start;">
+                        <label for="cueNoteText">Текст:</label>
+                        <textarea id="cueNoteText" rows="4" placeholder="Введите заметку для выбранного cue"></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button id="saveCueNoteModalBtn" class="btn-primary" type="button">Сохранить</button>
+                        <button id="cancelCueNoteModalBtn" class="btn-secondary" type="button">Отмена</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="cueOscModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>🎛️ OSC команды cue</h2>
+                    <button class="modal-close" id="closeCueOscModal" type="button" aria-label="Закрыть">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="modal-section">
+                        <h3>При старте (onStart)</h3>
+                        <div class="modal-row">
+                            <label for="cueOscStartAddress">Адрес:</label>
+                            <input type="text" id="cueOscStartAddress" placeholder="/cue/start" autocomplete="off">
+                        </div>
+                        <div class="modal-row">
+                            <label for="cueOscStartArgs">Аргументы:</label>
+                            <input type="text" id="cueOscStartArgs" placeholder="{title}" autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div class="modal-section">
+                        <h3>При завершении (onEnd)</h3>
+                        <div class="modal-row">
+                            <label for="cueOscEndAddress">Адрес:</label>
+                            <input type="text" id="cueOscEndAddress" placeholder="/cue/end" autocomplete="off">
+                        </div>
+                        <div class="modal-row">
+                            <label for="cueOscEndArgs">Аргументы:</label>
+                            <input type="text" id="cueOscEndArgs" placeholder="{id}" autocomplete="off">
+                        </div>
+                    </div>
+
+                    <p class="osc-cue-defaults-note">Если очистить адрес, будет использоваться команда по умолчанию.</p>
+
+                    <div class="modal-actions">
+                        <button id="saveCueOscModalBtn" class="btn-primary" type="button">Сохранить</button>
+                        <button id="cancelCueOscModalBtn" class="btn-secondary" type="button">Отмена</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Управление заставкой
+        document.addEventListener('DOMContentLoaded', () => {
+            const splashScreen = document.getElementById('splashScreen');
+            
+            // Скрываем заставку через 5 секунд
+            setTimeout(() => {
+                splashScreen.classList.add('fade-out');
+                
+                // Удаляем заставку из DOM после завершения анимации
+                setTimeout(() => {
+                    splashScreen.remove();
+                }, 1000);
+            }, 5000);
+        });
+    </script>
+
+    <script src="js/fireworks.js"></script>
+    <script type="module" src="js/script.js"></script>
+</body>
+</html> 

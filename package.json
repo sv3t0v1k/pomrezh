@@ -1,0 +1,59 @@
+{
+  "name": "pomrezh",
+  "version": "1.0.3",
+  "description": "ПомРеж — панель сценария и OSC",
+  "main": "electron/main.js",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "start": "node server.js",
+    "electron-dev": "NODE_ENV=development electron electron/main.js",
+    "electron-build": "electron-builder",
+    "start:server": "node server.js",
+    "postinstall": "node scripts/create-default-icon.js",
+    "dist": "electron-builder --mac --dir && node scripts/link-dist-app.js",
+    "dist:dmg": "electron-builder --mac",
+    "dist:mac": "electron-builder --mac",
+    "pack": "electron-builder --dir",
+    "test:osc-receiver": "node test_osc_receiver.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "osc-min": "^2.1.2",
+    "sortablejs": "^1.15.7",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "pngjs": "^7.0.0"
+  },
+  "build": {
+    "appId": "com.pomrezh.app",
+    "productName": "ПомРеж",
+    "copyright": "Copyright © ПомРеж",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "**/*",
+      "!dist/**",
+      "!.git/**",
+      "!**/.cursor/**",
+      "!**/agent-transcripts/**"
+    ],
+    "asar": true,
+    "mac": {
+      "category": "public.app-category.business",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "build/icon.icns"
+    }
+  }
+}

@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ПомРеж</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="css/speaker-screen.css">
+    <link rel="stylesheet" href="css/screen-cards.css">
+    <style>
+        body {
+            margin: 0;
+            background: #000;
+            color: #fff;
+            font-family: 'Helios', sans-serif;
+        }
+
+        .screen {
+            padding: 30px 40px;
+            min-height: 100vh;
+        }
+
+        .timer {
+            font-size: 72px;
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+
+        /* Крупные подписи cue (если не используется .card-title) */
+        .label {
+            font-size: 34px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 8px;
+        }
+
+        .current-text {
+            font-size: 98px;
+            line-height: 1.05;
+            word-wrap: break-word;
+        }
+
+        .next-text {
+            font-size: 72px;
+            line-height: 1.1;
+            word-wrap: break-word;
+        }
+
+        .queue-list {
+            margin-top: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .queue-item {
+            font-size: 60px;
+            line-height: 1.1;
+            background: rgba(26, 26, 26, 0.8);
+            border-radius: 14px;
+            padding: 16px 20px;
+        }
+
+        .notes-list {
+            margin-top: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .note-item {
+            font-size: 52px;
+            line-height: 1.15;
+            background: rgba(26, 26, 26, 0.8);
+            border-radius: 14px;
+            padding: 16px 20px;
+        }
+
+        #speakerTimeline {
+            margin-top: 20px;
+        }
+
+        #speaker-prepare.speaker-prepare-plain {
+            font-size: 42px;
+            line-height: 1.15;
+            color: rgba(255, 255, 255, 0.62);
+            font-weight: 400;
+            margin-top: 14px;
+            word-wrap: break-word;
+        }
+
+        /* Порядок блоков на экране ведущего: суфлер сверху → текущий cue → таймлайн → примечания → таймер … */
+        body.screen-speaker .screen {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        body.screen-speaker #logoBlock { order: 10; }
+        body.screen-speaker #liveIndicator { order: 20; }
+        body.screen-speaker #speakerScriptBlock { order: 25; }
+        body.screen-speaker #currentBlock { order: 30; }
+        body.screen-speaker #speakerTimeline { order: 40; }
+        body.screen-speaker #notesBlock { order: 50; }
+        body.screen-speaker #timerCardWrap { order: 60; }
+        body.screen-speaker #countdownCardWrap { order: 65; }
+        body.screen-speaker #clockCardWrap { order: 70; }
+        body.screen-speaker #nextBlock,
+        body.screen-speaker #queueBlock { order: 100; }
+
+        @keyframes speaker-current-cue-flash {
+            0% {
+                border-color: rgba(255, 99, 99, 0.28);
+                box-shadow: 0 0 0 rgba(255, 80, 80, 0);
+                background: rgba(255, 255, 255, 0.02);
+            }
+            45% {
+                border-color: rgba(255, 99, 99, 0.8);
+                box-shadow: 0 0 22px rgba(255, 90, 90, 0.32);
+                background: rgba(255, 90, 90, 0.08);
+            }
+            100% {
+                border-color: rgba(255, 99, 99, 0.28);
+                box-shadow: 0 0 0 rgba(255, 80, 80, 0);
+                background: rgba(255, 255, 255, 0.02);
+            }
+        }
+
+        #currentBlock.speaker-current-cue-flash {
+            animation: speaker-current-cue-flash 420ms ease-out 1;
+        }
+
+        .speaker-script-progress-wrap {
+            height: 6px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.12);
+            margin: 0 0 10px;
+            overflow: hidden;
+        }
+
+        .speaker-script-progress-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #4caf50, #81c784);
+            transition: width 0.08s linear;
+        }
+
+        body.theme-light .speaker-script-progress-wrap {
+            background: rgba(0, 0, 0, 0.12);
+        }
+
+        body.theme-light .speaker-script-progress-fill {
+            background: linear-gradient(90deg, #2e7d32, #66bb6a);
+        }
+
+        .speaker-script-block {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 16px;
+            padding: 12px 16px;
+            margin: 12px 0 20px;
+            max-height: min(42vh, 320px);
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            scroll-behavior: smooth;
+        }
+
+        body.strict-sync-script .speaker-script-block {
+            width: var(--strict-script-width, 800px);
+            max-height: none;
+            padding: 0;
+            margin-left: auto;
+            margin-right: auto;
+            overflow: hidden;
+            box-sizing: border-box;
+            border: 0;
+            border-radius: 0;
+        }
+
+        .speaker-script-block .card-title {
+            margin-bottom: 8px;
+        }
+
+        /* Базовый размер; точная шкала по font-small…xlarge — в css/speaker-screen.css */
+        .speaker-script-content {
+            line-height: 1.5;
+            font-weight: normal;
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: rgba(255, 255, 255, 0.94);
+            font-size: clamp(17px, 2.8vw, 22px);
+            scroll-behavior: smooth;
+        }
+
+        body.strict-sync-script .speaker-script-content {
+            display: block;
+            width: var(--strict-script-width, 800px);
+            height: var(--strict-script-height, 400px);
+            font-size: var(--strict-script-font-size, 42px);
+            line-height: var(--strict-script-line-height, 1.5);
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            padding: var(--strict-script-padding, 16px);
+            margin: 0;
+            border: 0;
+            box-sizing: border-box;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-y: auto;
+            overflow-x: hidden;
+            letter-spacing: normal;
+            word-spacing: normal;
+            text-indent: 0;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: geometricPrecision;
+            background: rgba(0, 0, 0, 0.3);
+            color: rgba(255, 255, 255, 0.94);
+        }
+
+        .strict-script-reset {
+            margin: 0 !important;
+            border: 0 !important;
+            outline: none !important;
+            letter-spacing: normal !important;
+            word-spacing: normal !important;
+            text-indent: 0 !important;
+            font-variant-ligatures: normal !important;
+            text-transform: none !important;
+            tab-size: 4 !important;
+            -webkit-font-smoothing: antialiased !important;
+            text-rendering: geometricPrecision !important;
+        }
+
+        body.strict-sync-script.theme-light .speaker-script-content {
+            background: rgba(255, 255, 255, 0.88);
+            color: #1a1a1a;
+        }
+
+        body.theme-light .speaker-script-content {
+            color: #1a1a1a;
+        }
+
+        body.theme-light .speaker-script-block {
+            background: rgba(255, 255, 255, 0.88);
+            border-color: rgba(0, 0, 0, 0.1);
+        }
+
+        body.theme-high-contrast .speaker-script-content {
+            color: #fff;
+        }
+
+        @media (max-width: 720px) {
+            .speaker-script-block {
+                max-height: min(36vh, 260px);
+            }
+        }
+
+        body.screen-mode-prompter .screen {
+            min-height: 100vh;
+            height: 100vh;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        body.screen-mode-prompter #speakerScriptBlock {
+            display: block;
+            flex: 1 1 auto;
+            width: 100%;
+            max-height: none;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            overflow: hidden;
+        }
+
+        body.screen-mode-prompter .speaker-script-progress-wrap,
+        body.screen-mode-prompter #speakerScriptBlock .card-title {
+            display: none;
+        }
+
+        body.screen-mode-prompter #speakerScriptContent {
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            box-sizing: border-box;
+            transform-origin: center center;
+            will-change: font-size, line-height, padding;
+        }
+
+        body.screen-mode-prompter.prompter-mirror #speakerScriptContent {
+            transform: scaleX(-1);
+        }
+    </style>
+</head>
+<body>
+    <div class="screen">
+        <div id="logoBlock">
+            <img id="showLogo" alt="" style="display:none;max-height:72px;">
+        </div>
+
+        <div id="liveIndicator" aria-live="polite">
+            <span class="live-dot-inline" aria-hidden="true">●</span>
+            <span>В ЭФИРЕ</span>
+        </div>
+
+        <div id="speakerScriptBlock" class="speaker-script-block" style="display:none;">
+            <div class="speaker-script-progress-wrap" aria-hidden="true">
+                <div id="speakerScriptProgressFill" class="speaker-script-progress-fill"></div>
+            </div>
+            <div class="card-title">📜 СЦЕНАРИЙ</div>
+            <div id="speakerScriptContent" class="speaker-script-content"></div>
+        </div>
+
+        <div id="clockCardWrap">
+            <div class="card-title">Время</div>
+            <div id="clockBlock"><span class="clock-line"></span></div>
+        </div>
+
+        <div id="timerCardWrap">
+            <div class="card-title" id="timerCardTitle">Таймер</div>
+            <div id="timerBlock" class="timer">0:00</div>
+        </div>
+
+        <div id="countdownCardWrap">
+            <div id="countdownBlock">
+                <div class="card-title">Осталось</div>
+                <div id="countdownText" class="countdown-line">00:00</div>
+            </div>
+        </div>
+
+        <div id="currentBlock">
+            <div class="card-title" id="currentLabel">НА СЦЕНЕ:</div>
+            <div id="currentText" class="current-text cue-title"></div>
+        </div>
+
+        <div id="speakerTimeline">
+            <div id="speakerNextCard">
+                <div class="card-title">Следующий</div>
+                <div id="speaker-next" class="next-text"></div>
+            </div>
+            <div id="speakerPrepareCard">
+                <div class="card-title">Готовится</div>
+                <div id="speaker-prepare" class="speaker-prepare-plain"></div>
+            </div>
+        </div>
+
+        <div id="nextBlock">
+            <div class="card-title" id="nextLabel">ГОТОВИТСЯ:</div>
+            <div id="nextText" class="next-text"></div>
+        </div>
+
+        <div id="queueBlock" style="display:none;">
+            <div class="card-title">Следующие действия</div>
+            <div id="queueList" class="queue-list"></div>
+        </div>
+
+        <div id="notesBlock" style="display:none;">
+            <div class="card-title">Примечания</div>
+            <div id="notesList" class="notes-list"></div>
+        </div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const screenType = params.get('type') || 'stage';
+        document.body.classList.add(`screen-mode-${screenType}`);
+        const SCREEN_THEMES = {
+            dark: 'theme-dark',
+            light: 'theme-light',
+            highContrast: 'theme-high-contrast'
+        };
+
+        function applyThemeToScreen(theme) {
+            Object.values(SCREEN_THEMES).forEach((cls) => document.body.classList.remove(cls));
+            const resolved = SCREEN_THEMES[theme] || SCREEN_THEMES.dark;
+            document.body.classList.add(resolved);
+            try {
+                localStorage.setItem('app_theme', theme in SCREEN_THEMES ? theme : 'dark');
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        const DEFAULT_SPEAKER_CUSTOMIZATION = {
+            showCurrent: true,
+            showNext: true,
+            showPrepare: true,
+            showNotes: true,
+            showScript: true,
+            showTimer: false,
+            showCountdown: false,
+            showLiveIndicator: true,
+            showClock: false,
+            showLogo: false,
+            mirrorScript: false,
+            speakerLayoutPreset: 'custom',
+            fontSize: 'medium',
+            theme: 'dark',
+            logoUrl: '',
+            strictScriptSync: false,
+            strictScriptWidthPx: 800,
+            strictScriptHeightPx: 400,
+            strictScriptFontSizePx: 42,
+            strictScriptLineHeight: 1.5,
+            strictScriptPaddingPx: 16
+        };
+
+        const DEFAULT_TECH_CUSTOMIZATION = {
+            layoutPreset: 'standard',
+            showCurrent: true,
+            showNext: true,
+            showPrepare: false,
+            showNotes: true,
+            showTimer: true,
+            showCountdown: false,
+            showClock: false,
+            showLiveIndicator: true,
+            fontSize: 'medium',
+            logoUrl: ''
+        };
+
+        function clampStrictNum(v, fallback, min, max) {
+            const n = Number(v);
+            if (!Number.isFinite(n)) return fallback;
+            return Math.max(min, Math.min(max, n));
+        }
+
+        function mergeSpeakerCustomization(raw) {
+            const o = { ...DEFAULT_SPEAKER_CUSTOMIZATION };
+            if (!raw || typeof raw !== 'object') return o;
+            const boolKeys = [
+                'showCurrent', 'showNext', 'showPrepare', 'showNotes', 'showScript', 'showTimer', 'showCountdown',
+                'showLiveIndicator', 'showClock', 'showLogo', 'strictScriptSync', 'mirrorScript'
+            ];
+            boolKeys.forEach((k) => {
+                if (typeof raw[k] === 'boolean') o[k] = raw[k];
+            });
+            if (typeof raw.fontSize === 'string' && raw.fontSize) o.fontSize = raw.fontSize;
+            if (typeof raw.theme === 'string' && raw.theme) o.theme = raw.theme;
+            if (typeof raw.logoUrl === 'string') o.logoUrl = raw.logoUrl;
+            if (typeof raw.speakerLayoutPreset === 'string' && ['focus', 'balanced', 'full', 'custom'].includes(raw.speakerLayoutPreset)) {
+                o.speakerLayoutPreset = raw.speakerLayoutPreset;
+            }
+            o.strictScriptWidthPx = clampStrictNum(raw.strictScriptWidthPx, o.strictScriptWidthPx, 320, 1920);
+            o.strictScriptHeightPx = clampStrictNum(raw.strictScriptHeightPx, o.strictScriptHeightPx, 180, 1200);
+            o.strictScriptFontSizePx = clampStrictNum(raw.strictScriptFontSizePx, o.strictScriptFontSizePx, 16, 144);
+            o.strictScriptLineHeight = clampStrictNum(raw.strictScriptLineHeight, o.strictScriptLineHeight, 1, 2.2);
+            o.strictScriptPaddingPx = clampStrictNum(raw.strictScriptPaddingPx, o.strictScriptPaddingPx, 4, 80);
+            return o;
+        }
+
+        function mergeTechCustomization(raw) {
+            const o = { ...DEFAULT_TECH_CUSTOMIZATION };
+            if (!raw || typeof raw !== 'object') return o;
+            const boolKeys = [
+                'showCurrent',
+                'showNext',
+                'showPrepare',
+                'showNotes',
+                'showTimer',
+                'showCountdown',
+                'showClock',
+                'showLiveIndicator'
+            ];
+            boolKeys.forEach((k) => {
+                if (typeof raw[k] === 'boolean') o[k] = raw[k];
+            });
+            if (typeof raw.fontSize === 'string' && ['small', 'medium', 'large', 'xlarge'].includes(raw.fontSize)) {
+                o.fontSize = raw.fontSize;
+            }
+            if (typeof raw.logoUrl === 'string') o.logoUrl = raw.logoUrl;
+            if (typeof raw.layoutPreset === 'string' && ['compact', 'standard', 'full', 'custom'].includes(raw.layoutPreset)) {
+                o.layoutPreset = raw.layoutPreset;
+            }
+            return o;
+        }
+
+        function applySpeakerChromeClasses(custom) {
+            const c = mergeSpeakerCustomization(custom);
+            document.body.classList.remove('font-small', 'font-medium', 'font-large', 'font-xlarge');
+            document.body.classList.add(`font-${c.fontSize || 'medium'}`);
+            document.body.classList.toggle('strict-sync-script', !!c.strictScriptSync);
+            document.documentElement.style.setProperty('--strict-script-width', `${c.strictScriptWidthPx}px`);
+            document.documentElement.style.setProperty('--strict-script-height', `${c.strictScriptHeightPx}px`);
+            document.documentElement.style.setProperty('--strict-script-font-size', `${c.strictScriptFontSizePx}px`);
+            document.documentElement.style.setProperty('--strict-script-line-height', `${c.strictScriptLineHeight}`);
+            document.documentElement.style.setProperty('--strict-script-padding', `${c.strictScriptPaddingPx}px`);
+            if (speakerScriptContent) {
+                if (c.strictScriptSync) {
+                    speakerScriptContent.classList.add('strict-script-reset');
+                    speakerScriptContent.style.width = `${c.strictScriptWidthPx}px`;
+                    speakerScriptContent.style.height = `${c.strictScriptHeightPx}px`;
+                    speakerScriptContent.style.padding = `${c.strictScriptPaddingPx}px`;
+                    speakerScriptContent.style.fontSize = `${c.strictScriptFontSizePx}px`;
+                    speakerScriptContent.style.lineHeight = String(c.strictScriptLineHeight);
+                    speakerScriptContent.style.fontFamily = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+                    speakerScriptContent.style.boxSizing = 'border-box';
+                    speakerScriptContent.style.whiteSpace = 'pre-wrap';
+                    speakerScriptContent.style.wordBreak = 'break-word';
+                    speakerScriptContent.style.overflowY = 'auto';
+                    speakerScriptContent.style.overflowX = 'hidden';
+                    speakerScriptContent.style.letterSpacing = 'normal';
+                    speakerScriptContent.style.wordSpacing = 'normal';
+                    speakerScriptContent.style.textIndent = '0';
+                    speakerScriptContent.style.webkitFontSmoothing = 'antialiased';
+                    speakerScriptContent.style.textRendering = 'geometricPrecision';
+                    speakerScriptContent.style.zoom = '1';
+                } else {
+                    speakerScriptContent.classList.remove('strict-script-reset');
+                    speakerScriptContent.removeAttribute('style');
+                }
+            }
+            if (document.body && c.strictScriptSync) document.body.style.zoom = '1';
+        }
+
+        function applyTechChromeClasses(custom) {
+            const c = mergeTechCustomization(custom);
+            document.body.classList.remove('font-small', 'font-medium', 'font-large', 'font-xlarge');
+            document.body.classList.add(`font-${c.fontSize || 'medium'}`);
+        }
+
+        const timerCardWrap = document.getElementById('timerCardWrap');
+        const timerBlock = document.getElementById('timerBlock');
+        const currentText = document.getElementById('currentText');
+        const currentBlock = document.getElementById('currentBlock');
+        const nextBlock = document.getElementById('nextBlock');
+        const nextText = document.getElementById('nextText');
+        const queueBlock = document.getElementById('queueBlock');
+        const queueList = document.getElementById('queueList');
+        const notesBlock = document.getElementById('notesBlock');
+        const notesList = document.getElementById('notesList');
+        const speakerTimeline = document.getElementById('speakerTimeline');
+        const speakerNextCard = document.getElementById('speakerNextCard');
+        const speakerPrepareCard = document.getElementById('speakerPrepareCard');
+        const speakerNext = document.getElementById('speaker-next');
+        const speakerPrepare = document.getElementById('speaker-prepare');
+        const logoBlock = document.getElementById('logoBlock');
+        const showLogoEl = document.getElementById('showLogo');
+        const liveIndicatorEl = document.getElementById('liveIndicator');
+        const clockCardWrap = document.getElementById('clockCardWrap');
+        const clockBlock = document.getElementById('clockBlock');
+        const countdownCardWrap = document.getElementById('countdownCardWrap');
+        const countdownBlock = document.getElementById('countdownBlock');
+        const countdownText = document.getElementById('countdownText');
+        const speakerScriptBlock = document.getElementById('speakerScriptBlock');
+        const speakerScriptContent = document.getElementById('speakerScriptContent');
+        const speakerScriptProgressFill = document.getElementById('speakerScriptProgressFill');
+        let prompterResizeObserver = null;
+
+        if (screenType === 'speaker') {
+            document.body.classList.add('screen-speaker');
+        }
+
+        function getTypeIcon(type) {
+            switch (type) {
+                case 'host': return '🎤';
+                case 'tech': return '⚙️';
+                default: return '🎵';
+            }
+        }
+
+        function titleWithIcon(action) {
+            if (!action) return '';
+            const icon = getTypeIcon(action.type);
+            const t = action.title || '';
+            return `${icon} ${t}`.trim();
+        }
+
+        function clampScriptScrollPos(p) {
+            if (typeof p !== 'number' || !Number.isFinite(p)) return 0;
+            return Math.max(0, Math.min(1, p));
+        }
+
+        function getScrollPercent(el) {
+            if (!el) return 0;
+            const max = el.scrollHeight - el.clientHeight;
+            if (max <= 0) return 0;
+            return clampScriptScrollPos(el.scrollTop / max);
+        }
+
+        let _speakerScriptScrollGen = 0;
+        let _lastSpeakerCurrentActionId = null;
+
+        function bumpSpeakerScriptScrollGeneration() {
+            _speakerScriptScrollGen += 1;
+            return _speakerScriptScrollGen;
+        }
+
+        function easeOutCubic(t) {
+            return 1 - Math.pow(1 - t, 3);
+        }
+
+        /** Мгновенная установка (авто-прокрутка оператора, высокая частота) — отменяет текущую плавную анимацию. */
+        function setSpeakerScriptScrollInstant(el, p) {
+            if (!el) return;
+            bumpSpeakerScriptScrollGeneration();
+            const max = el.scrollHeight - el.clientHeight;
+            if (max <= 0) return;
+            el.scrollTop = clampScriptScrollPos(p) * max;
+            updateSpeakerScriptProgressFill(p);
+        }
+
+        /**
+         * Плавная прокрутка контейнера суфлера; новый вызов отменяет предыдущую анимацию.
+         * @param {number} percent 0…1
+         * @param {number} durationMs
+         * @param {function} [onComplete]
+         */
+        function smoothScrollSpeakerScriptToPercent(percent, durationMs, onComplete) {
+            if (!speakerScriptBlock) return;
+            const myGen = bumpSpeakerScriptScrollGeneration();
+            const el = speakerScriptBlock;
+            const max = el.scrollHeight - el.clientHeight;
+            if (max <= 0) {
+                updateSpeakerScriptProgressFill(percent);
+                if (onComplete) onComplete();
+                return;
+            }
+            const targetTop = clampScriptScrollPos(percent) * max;
+            const startTop = el.scrollTop;
+            const distance = targetTop - startTop;
+            if (Math.abs(distance) < 0.75) {
+                el.scrollTop = targetTop;
+                updateSpeakerScriptProgressFill(percent);
+                if (onComplete) onComplete();
+                return;
+            }
+            const startTime = performance.now();
+            function animate(now) {
+                if (myGen !== _speakerScriptScrollGen) return;
+                const elapsed = now - startTime;
+                const t = Math.min(elapsed / durationMs, 1);
+                el.scrollTop = startTop + distance * easeOutCubic(t);
+                updateSpeakerScriptProgressFill(el.scrollTop / max);
+                if (t < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    el.scrollTop = targetTop;
+                    updateSpeakerScriptProgressFill(percent);
+                    if (onComplete) onComplete();
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+
+        function updateSpeakerScriptProgressFill(p) {
+            if (!speakerScriptProgressFill) return;
+            const pct = Math.round(clampScriptScrollPos(p) * 100);
+            speakerScriptProgressFill.style.width = `${pct}%`;
+        }
+
+        function logStrictSpeakerComputedStyle() {
+            try {
+                if (!speakerScriptContent || localStorage.getItem('STRICT_STYLE_DEBUG') !== '1') return;
+                const cs = window.getComputedStyle(speakerScriptContent);
+                console.log('[STRICT][speaker] computed', {
+                    fontSize: cs.fontSize,
+                    lineHeight: cs.lineHeight,
+                    fontFamily: cs.fontFamily,
+                    padding: cs.padding,
+                    width: cs.width,
+                    height: cs.height,
+                    letterSpacing: cs.letterSpacing,
+                    wordSpacing: cs.wordSpacing,
+                    textRendering: cs.textRendering,
+                    webkitFontSmoothing: cs.webkitFontSmoothing
+                });
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        function getElapsed(state) {
+            if (!state || !state.startedAt) return 0;
+            const acc = state.accumulatedPause || 0;
+            if (state.pausedAt != null) {
+                return state.pausedAt - state.startedAt - acc;
+            }
+            return Date.now() - state.startedAt - acc;
+        }
+
+        function appendPausedLabel(line, state) {
+            if (!state || !state.startedAt || state.isRunning) return line;
+            return `${line}  PAUSED`;
+        }
+
+        function getRemaining(durationMs, elapsedMs) {
+            return Math.max(durationMs - elapsedMs, 0);
+        }
+
+        function format(ms) {
+            const sec = Math.max(0, Math.floor(ms / 1000));
+            const m = Math.floor(sec / 60);
+            const s = sec % 60;
+            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        function parseDurationSecondsFromPlanned(str) {
+            if (str == null) return null;
+            const s = String(str).trim();
+            if (!s) return null;
+            const parts = s.split(':').map(p => p.trim()).filter(p => p.length > 0);
+            if (parts.length === 0) return null;
+            const nums = parts.map(p => {
+                const n = parseInt(p, 10);
+                return Number.isFinite(n) && n >= 0 ? n : NaN;
+            });
+            if (nums.some(n => Number.isNaN(n))) return null;
+            if (nums.length === 1) return nums[0] * 60;
+            if (nums.length === 2) return nums[0] * 60 + nums[1];
+            if (nums.length === 3) return nums[0] * 3600 + nums[1] * 60 + nums[2];
+            return null;
+        }
+
+        function getDurationSecFromAction(action) {
+            if (!action) return 600;
+            const parsed = parseDurationSecondsFromPlanned(action.plannedStart);
+            if (parsed != null && parsed > 0) return parsed;
+            if (typeof action.durationSec === 'number' && action.durationSec > 0) return action.durationSec;
+            return 600;
+        }
+
+        function normalizeNotes(notes) {
+            if (!Array.isArray(notes)) return [];
+            return notes
+                .map(n => {
+                    if (typeof n === 'string') return n;
+                    if (n && typeof n === 'object') return (n.text ?? '').toString();
+                    return '';
+                })
+                .map(s => s.trim())
+                .filter(Boolean);
+        }
+
+        function clearSemanticClasses(el) {
+            if (!el) return;
+            el.classList.remove('action-current', 'action-next', 'action-queue');
+        }
+
+        function clearTitleElement(el) {
+            if (!el) return;
+            clearSemanticClasses(el);
+            el.textContent = '';
+        }
+
+        function setCurrentPlain(el, action) {
+            if (!el) return;
+            clearSemanticClasses(el);
+            el.classList.add('action-current');
+            el.textContent = action ? titleWithIcon(action) : '';
+        }
+
+        function setCurrentWithLiveDot(el, action) {
+            if (!el) return;
+            clearSemanticClasses(el);
+            el.classList.add('action-current');
+            el.innerHTML = '';
+            const dot = document.createElement('span');
+            dot.className = 'live-dot';
+            dot.setAttribute('aria-hidden', 'true');
+            dot.textContent = '●';
+            el.appendChild(dot);
+            const label = typeof action === 'string'
+                ? `${getTypeIcon('performance')} ${action || ''}`.trim()
+                : titleWithIcon(action);
+            if (label) {
+                el.appendChild(document.createTextNode(` ${label}`));
+            }
+        }
+
+        function setNextStyled(el, action) {
+            if (!el) return;
+            clearSemanticClasses(el);
+            el.classList.add('action-next');
+            el.textContent = typeof action === 'string'
+                ? `${getTypeIcon('performance')} ${action || ''}`.trim()
+                : titleWithIcon(action);
+        }
+
+        function hideSpeakerOnlyChrome() {
+            [logoBlock, liveIndicatorEl, clockCardWrap, countdownCardWrap, speakerScriptBlock].forEach((el) => {
+                if (el) el.style.display = 'none';
+            });
+            if (showLogoEl) {
+                showLogoEl.style.display = 'none';
+            }
+        }
+
+        function clampPrompterScale(v) {
+            if (!Number.isFinite(v) || v <= 0) return 1;
+            return Math.max(0.1, Math.min(v, 10));
+        }
+
+        function applyPrompterAdaptiveLayout(container, customization) {
+            if (!container || !speakerScriptContent) return;
+            const c = mergeSpeakerCustomization(customization);
+            const strictWidth = Math.max(1, Number(c.strictScriptWidthPx) || 800);
+            const strictFont = Math.max(1, Number(c.strictScriptFontSizePx) || 42);
+            const strictLineHeight = Number(c.strictScriptLineHeight) || 1.5;
+            const strictPadding = Math.max(0, Number(c.strictScriptPaddingPx) || 16);
+
+            let scale = 1;
+            if (c.strictScriptSync) {
+                scale = clampPrompterScale(container.clientWidth / strictWidth);
+            }
+
+            const nextFontSize = c.strictScriptSync
+                ? Math.max(12, Math.min(200, strictFont * scale))
+                : Math.max(12, Math.min(200, strictFont));
+            const nextLineHeight = c.strictScriptSync
+                ? Math.max(1, Math.min(3, strictLineHeight * scale))
+                : Math.max(1, Math.min(3, strictLineHeight));
+            const nextPadding = c.strictScriptSync
+                ? Math.max(4, Math.min(160, strictPadding * scale))
+                : Math.max(4, Math.min(160, strictPadding));
+
+            speakerScriptContent.style.fontSize = `${nextFontSize}px`;
+            speakerScriptContent.style.lineHeight = String(nextLineHeight);
+            speakerScriptContent.style.padding = `${nextPadding}px`;
+            speakerScriptContent.style.fontFamily = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+            speakerScriptContent.style.whiteSpace = 'pre-wrap';
+            speakerScriptContent.style.wordBreak = 'break-word';
+            speakerScriptContent.style.letterSpacing = 'normal';
+            speakerScriptContent.style.wordSpacing = 'normal';
+            speakerScriptContent.style.textIndent = '0';
+            speakerScriptContent.style.webkitFontSmoothing = 'antialiased';
+            speakerScriptContent.style.textRendering = 'geometricPrecision';
+            speakerScriptContent.classList.add('strict-script-reset');
+        }
+
+        function ensurePrompterAdaptiveObserver(customization) {
+            if (screenType !== 'prompter' || !speakerScriptBlock) return;
+            if (!prompterResizeObserver && typeof ResizeObserver !== 'undefined') {
+                prompterResizeObserver = new ResizeObserver(() => {
+                    const beforeMax = Math.max(0, speakerScriptContent.scrollHeight - speakerScriptContent.clientHeight);
+                    const savedPercent = beforeMax <= 0
+                        ? clampScriptScrollPos(window.lastState?.actions?.[window.lastState?.currentIndex]?.scriptScrollPos || 0)
+                        : clampScriptScrollPos((speakerScriptContent.scrollTop || 0) / beforeMax);
+                    applyPrompterAdaptiveLayout(speakerScriptBlock, window.lastState?.speakerCustomization || customization || null);
+                    const max = Math.max(0, speakerScriptContent.scrollHeight - speakerScriptContent.clientHeight);
+                    const targetTop = max <= 0 ? 0 : max * savedPercent;
+                    speakerScriptContent.dataset._scriptScrollIgnore = '1';
+                    speakerScriptContent.scrollTop = targetTop;
+                    requestAnimationFrame(() => {
+                        speakerScriptContent.dataset._scriptScrollIgnore = '0';
+                        updateSpeakerScriptProgressFill(max <= 0 ? 0 : targetTop / max);
+                    });
+                });
+                prompterResizeObserver.observe(speakerScriptBlock);
+            }
+            applyPrompterAdaptiveLayout(speakerScriptBlock, customization);
+        }
+
+        function renderStage(current, next, state) {
+            hideSpeakerOnlyChrome();
+            if (speakerTimeline) speakerTimeline.style.display = 'none';
+            if (timerCardWrap) timerCardWrap.style.display = 'block';
+            timerBlock.style.display = 'block';
+            nextBlock.style.display = 'block';
+            queueBlock.style.display = 'none';
+            notesBlock.style.display = 'none';
+
+            if (current) {
+                setCurrentWithLiveDot(currentText, current);
+            } else {
+                clearTitleElement(currentText);
+            }
+            if (next) {
+                setNextStyled(nextText, next);
+            } else {
+                clearTitleElement(nextText);
+            }
+
+            const action = current || null;
+            const duration = getDurationSecFromAction(action) * 1000;
+
+            if (!state?.startedAt) {
+                timerBlock.textContent = `${format(0)} / ${format(duration)}`;
+            } else {
+                const elapsed = getElapsed(state);
+                const remaining = getRemaining(duration, elapsed);
+                timerBlock.textContent = appendPausedLabel(`${format(remaining)} / ${format(duration)}`, state);
+            }
+        }
+
+        function renderTech(current, next, queue, state) {
+            hideSpeakerOnlyChrome();
+            const custom = mergeTechCustomization(state?.techCustomization);
+            applyTechChromeClasses(custom);
+            if (speakerTimeline) speakerTimeline.style.display = 'none';
+            if (logoBlock && showLogoEl) {
+                if (custom.logoUrl) {
+                    showLogoEl.src = custom.logoUrl;
+                    showLogoEl.alt = '';
+                    showLogoEl.style.display = 'block';
+                    logoBlock.style.display = 'block';
+                } else {
+                    showLogoEl.style.display = 'none';
+                    logoBlock.style.display = 'none';
+                }
+            }
+            if (liveIndicatorEl) {
+                liveIndicatorEl.style.display = (custom.showLiveIndicator && current) ? 'flex' : 'none';
+            }
+            if (clockCardWrap && clockBlock) {
+                clockCardWrap.style.display = custom.showClock ? 'block' : 'none';
+                const line = clockBlock.querySelector('.clock-line');
+                if (line && custom.showClock) {
+                    line.textContent = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                }
+            }
+            if (timerCardWrap) timerCardWrap.style.display = custom.showTimer ? 'block' : 'none';
+            if (timerBlock) timerBlock.style.display = custom.showTimer ? 'block' : 'none';
+            if (countdownCardWrap && countdownText) {
+                const actionForCountdown = current || null;
+                const durationForCountdown = getDurationSecFromAction(actionForCountdown) * 1000;
+                const elapsedForCountdown = state?.startedAt ? getElapsed(state) : 0;
+                const remaining = getRemaining(durationForCountdown, elapsedForCountdown);
+                countdownText.textContent = appendPausedLabel(format(remaining), state);
+                countdownCardWrap.style.display = custom.showCountdown ? 'block' : 'none';
+            }
+            if (currentBlock) currentBlock.style.display = custom.showCurrent ? 'block' : 'none';
+            if (nextBlock) nextBlock.style.display = custom.showNext ? 'block' : 'none';
+            if (queueBlock) queueBlock.style.display = custom.showPrepare ? 'block' : 'none';
+            if (notesBlock) notesBlock.style.display = custom.showNotes ? 'block' : 'none';
+
+            if (current) {
+                setCurrentWithLiveDot(currentText, current);
+            } else {
+                clearTitleElement(currentText);
+            }
+            if (next) {
+                setNextStyled(nextText, next);
+            } else {
+                clearTitleElement(nextText);
+            }
+
+            queueList.innerHTML = '';
+            const afterNext = Array.isArray(queue) ? queue.slice(1, 2) : [];
+            afterNext.forEach((action) => {
+                const el = document.createElement('div');
+                el.className = 'queue-item action-queue';
+                el.textContent = titleWithIcon(action);
+                queueList.appendChild(el);
+            });
+            const queueTitle = queueBlock?.querySelector('.card-title');
+            if (queueTitle) queueTitle.textContent = 'Готовится';
+
+            notesList.innerHTML = '';
+            const notes = normalizeNotes(current?.notes);
+            if (notes.length === 0) {
+                const el = document.createElement('div');
+                el.className = 'note-item';
+                el.textContent = 'Нет примечаний';
+                notesList.appendChild(el);
+            } else {
+                notes.forEach((text) => {
+                    const el = document.createElement('div');
+                    el.className = 'note-item';
+                    el.textContent = text;
+                    notesList.appendChild(el);
+                });
+            }
+
+            const action = current || null;
+            const duration = getDurationSecFromAction(action) * 1000;
+            if (!state?.startedAt) {
+                timerBlock.textContent = appendPausedLabel(`${format(0)} / ${format(duration)}`, state);
+            } else {
+                const elapsed = getElapsed(state);
+                const remaining = getRemaining(duration, elapsed);
+                timerBlock.textContent = appendPausedLabel(`${format(remaining)} / ${format(duration)}`, state);
+            }
+        }
+
+        function renderSpeaker(current, state) {
+            const custom = mergeSpeakerCustomization(state.speakerCustomization);
+            applySpeakerChromeClasses(custom);
+            logStrictSpeakerComputedStyle();
+            const strictSync = !!custom.strictScriptSync;
+            const scriptScrollEl = strictSync ? speakerScriptContent : speakerScriptBlock;
+
+            const next = state.actions[state.currentIndex + 1] || null;
+            const prepare = state.actions[state.currentIndex + 2] || null;
+
+            if (logoBlock && showLogoEl) {
+                if (custom.showLogo && custom.logoUrl) {
+                    showLogoEl.src = custom.logoUrl;
+                    showLogoEl.alt = '';
+                    showLogoEl.style.display = 'block';
+                    logoBlock.style.display = 'block';
+                } else {
+                    showLogoEl.style.display = 'none';
+                    logoBlock.style.display = 'none';
+                }
+            }
+
+            if (liveIndicatorEl) {
+                liveIndicatorEl.style.display = (custom.showLiveIndicator && current) ? 'flex' : 'none';
+            }
+
+            if (clockCardWrap && clockBlock) {
+                clockCardWrap.style.display = custom.showClock ? 'block' : 'none';
+                const line = clockBlock.querySelector('.clock-line');
+                if (line && custom.showClock) {
+                    line.textContent = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                }
+            }
+
+            if (timerCardWrap) {
+                timerCardWrap.style.display = custom.showTimer ? 'block' : 'none';
+            }
+            if (timerBlock) {
+                timerBlock.style.display = custom.showTimer ? 'block' : 'none';
+            }
+
+            if (countdownCardWrap && countdownText) {
+                const action = current || null;
+                const duration = getDurationSecFromAction(action) * 1000;
+                const elapsed = state?.startedAt ? getElapsed(state) : 0;
+                const remaining = getRemaining(duration, elapsed);
+                countdownText.textContent = appendPausedLabel(format(remaining), state);
+                countdownCardWrap.style.display = custom.showCountdown ? 'block' : 'none';
+            }
+
+            if (currentBlock) {
+                currentBlock.style.display = custom.showCurrent ? 'block' : 'none';
+            }
+
+            const showNextCard = !!(custom.showNext && next);
+            const showPrepareCard = !!(custom.showPrepare && prepare);
+            if (speakerTimeline) {
+                speakerTimeline.style.display = (showNextCard || showPrepareCard) ? 'flex' : 'none';
+                speakerTimeline.style.flexDirection = 'column';
+                speakerTimeline.style.gap = '16px';
+            }
+
+            if (speakerNextCard && speakerNext) {
+                if (showNextCard) {
+                    clearSemanticClasses(speakerNext);
+                    speakerNext.classList.add('action-next');
+                    speakerNext.textContent = titleWithIcon(next);
+                    speakerNext.style.display = 'block';
+                    speakerNextCard.style.display = 'block';
+                } else {
+                    clearSemanticClasses(speakerNext);
+                    speakerNext.textContent = '';
+                    speakerNext.style.display = 'none';
+                    speakerNextCard.style.display = 'none';
+                }
+            }
+
+            if (speakerPrepareCard && speakerPrepare) {
+                if (showPrepareCard) {
+                    clearSemanticClasses(speakerPrepare);
+                    speakerPrepare.textContent = titleWithIcon(prepare);
+                    speakerPrepare.style.display = 'block';
+                    speakerPrepareCard.style.display = 'block';
+                } else {
+                    clearSemanticClasses(speakerPrepare);
+                    speakerPrepare.textContent = '';
+                    speakerPrepare.style.display = 'none';
+                    speakerPrepareCard.style.display = 'none';
+                }
+            }
+
+            nextBlock.style.display = 'none';
+            queueBlock.style.display = 'none';
+
+            if (notesBlock) {
+                notesBlock.style.display = custom.showNotes ? 'block' : 'none';
+            }
+
+            const action = current || null;
+            const duration = getDurationSecFromAction(action) * 1000;
+            const elapsed = state?.startedAt ? getElapsed(state) : 0;
+
+            if (timerBlock && custom.showTimer) {
+                timerBlock.textContent = appendPausedLabel(`${format(elapsed)} / ${format(duration)}`, state);
+            }
+
+            if (current) {
+                if (custom.showLiveIndicator) {
+                    setCurrentWithLiveDot(currentText, current);
+                } else {
+                    setCurrentPlain(currentText, current);
+                }
+            } else {
+                clearTitleElement(currentText);
+            }
+
+            if (currentBlock && custom.showCurrent) {
+                const currentId = current && current.id ? String(current.id) : null;
+                if (_lastSpeakerCurrentActionId && currentId && _lastSpeakerCurrentActionId !== currentId) {
+                    currentBlock.classList.remove('speaker-current-cue-flash');
+                    void currentBlock.offsetWidth;
+                    currentBlock.classList.add('speaker-current-cue-flash');
+                }
+                _lastSpeakerCurrentActionId = currentId;
+            }
+
+            notesList.innerHTML = '';
+            const notes = normalizeNotes(current?.notes);
+            if (notes.length === 0) {
+                const el = document.createElement('div');
+                el.className = 'note-item';
+                el.textContent = 'Нет примечаний';
+                notesList.appendChild(el);
+            } else {
+                notes.forEach(text => {
+                    const el = document.createElement('div');
+                    el.className = 'note-item';
+                    el.textContent = text;
+                    notesList.appendChild(el);
+                });
+            }
+
+            const rawScript = current && typeof current.scriptText === 'string' ? current.scriptText : '';
+            const scriptScrollP = current
+                ? clampScriptScrollPos(typeof current.scriptScrollPos === 'number' ? current.scriptScrollPos : 0)
+                : 0;
+            const scriptScrollTopPx = current && Number.isFinite(current.scriptScrollTopPx)
+                ? Math.max(0, Number(current.scriptScrollTopPx))
+                : 0;
+            if (speakerScriptBlock && speakerScriptContent) {
+                if (custom.showScript && (strictSync || rawScript.trim())) {
+                    speakerScriptBlock.style.display = 'block';
+                    const textChanged = speakerScriptContent.textContent !== rawScript;
+                    if (textChanged) {
+                        speakerScriptContent.textContent = rawScript;
+                    }
+                    const strictMax = scriptScrollEl ? Math.max(0, scriptScrollEl.scrollHeight - scriptScrollEl.clientHeight) : 0;
+                    const strictPercent = strictMax <= 0 ? scriptScrollP : clampScriptScrollPos(scriptScrollTopPx / strictMax);
+                    updateSpeakerScriptProgressFill(strictSync ? strictPercent : scriptScrollP);
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            const max = scriptScrollEl ? scriptScrollEl.scrollHeight - scriptScrollEl.clientHeight : 0;
+                            const currentP =
+                                !scriptScrollEl || max <= 0 ? 0 : clampScriptScrollPos(scriptScrollEl.scrollTop / max);
+                            const needScroll =
+                                textChanged || Math.abs(currentP - (strictSync ? strictPercent : scriptScrollP)) > 0.002;
+                            if (!needScroll) return;
+                            if (scriptScrollEl) scriptScrollEl.dataset._scriptScrollIgnore = '1';
+                            if (strictSync) {
+                                const targetPx = Math.max(0, Math.min(scriptScrollTopPx, max));
+                                if (scriptScrollEl) scriptScrollEl.scrollTop = targetPx;
+                                updateSpeakerScriptProgressFill(max <= 0 ? 0 : targetPx / max);
+                                if (scriptScrollEl) scriptScrollEl.dataset._scriptScrollIgnore = '0';
+                                return;
+                            }
+                            smoothScrollSpeakerScriptToPercent(scriptScrollP, 190, () => {
+                                if (scriptScrollEl) scriptScrollEl.dataset._scriptScrollIgnore = '0';
+                            });
+                        });
+                    });
+                } else {
+                    bumpSpeakerScriptScrollGeneration();
+                    speakerScriptBlock.style.display = 'none';
+                    speakerScriptContent.textContent = '';
+                    updateSpeakerScriptProgressFill(0);
+                    speakerScriptBlock.dataset._scriptScrollIgnore = '0';
+                }
+            }
+        }
+
+        function renderPrompter(current, state) {
+            const custom = mergeSpeakerCustomization(state?.speakerCustomization);
+            applyThemeToScreen(custom.theme || state?.uiTheme || 'dark');
+            document.body.classList.toggle('prompter-mirror', !!custom.mirrorScript);
+            hideSpeakerOnlyChrome();
+            if (speakerTimeline) speakerTimeline.style.display = 'none';
+            if (currentBlock) currentBlock.style.display = 'none';
+            if (nextBlock) nextBlock.style.display = 'none';
+            if (queueBlock) queueBlock.style.display = 'none';
+            if (notesBlock) notesBlock.style.display = 'none';
+            if (timerCardWrap) timerCardWrap.style.display = 'none';
+            if (countdownCardWrap) countdownCardWrap.style.display = 'none';
+            if (clockCardWrap) clockCardWrap.style.display = 'none';
+            if (speakerScriptBlock) speakerScriptBlock.style.display = 'block';
+
+            const rawScript = current && typeof current.scriptText === 'string' ? current.scriptText : '';
+            const scrollPos = current ? clampScriptScrollPos(typeof current.scriptScrollPos === 'number' ? current.scriptScrollPos : 0) : 0;
+
+            ensurePrompterAdaptiveObserver(custom);
+            if (speakerScriptContent.textContent !== rawScript) {
+                speakerScriptContent.textContent = rawScript;
+            }
+
+            requestAnimationFrame(() => {
+                const max = Math.max(0, speakerScriptContent.scrollHeight - speakerScriptContent.clientHeight);
+                const targetTop = max <= 0 ? 0 : max * scrollPos;
+                speakerScriptContent.dataset._scriptScrollIgnore = '1';
+                speakerScriptContent.scrollTop = targetTop;
+                requestAnimationFrame(() => {
+                    speakerScriptContent.dataset._scriptScrollIgnore = '0';
+                    updateSpeakerScriptProgressFill(max <= 0 ? 0 : targetTop / max);
+                });
+            });
+        }
+
+        function renderScreen(state) {
+            if (!state || !Array.isArray(state.actions)) return;
+
+            const current = state.actions[state.currentIndex] || null;
+            const next = state.actions[state.currentIndex + 1] || null;
+            const queue = state.actions.slice(state.currentIndex + 1);
+
+            switch (screenType) {
+                case 'tech':
+                    renderTech(current, next, queue, state);
+                    break;
+                case 'speaker':
+                    renderSpeaker(current, state);
+                    break;
+                case 'prompter':
+                    renderPrompter(current, state);
+                    break;
+                case 'stage':
+                default:
+                    renderStage(current, next, state);
+                    break;
+            }
+        }
+
+        window.lastState = null;
+        let renderTickerId = null;
+
+        function commitPrompterScrollNow(el, targetTop, max) {
+            if (!el) return;
+            const clampedTop = Math.max(0, Math.min(targetTop, Math.max(0, max)));
+            // 1) Немедленная установка + форс рефлоу для Safari в фоне.
+            el.scrollTop = clampedTop;
+            void el.offsetHeight;
+            // 2) Дублирующая установка в следующем цикле рендера.
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    el.scrollTop = clampedTop;
+                    void el.offsetHeight;
+                });
+            });
+        }
+
+        window.addEventListener('message', (event) => {
+            const msg = event && event.data ? event.data : null;
+            if (!msg || !msg.type) return;
+
+            if (msg.type === 'SYNC_SCROLL') {
+                if ((screenType !== 'speaker' && screenType !== 'prompter') || !window.lastState) return;
+                const cur = window.lastState.actions[window.lastState.currentIndex];
+                if (!cur || cur.id !== msg.actionId) return;
+                const rawPercent = Number.isFinite(msg.percent) ? msg.percent : msg.scrollPercent;
+                const pct = clampScriptScrollPos(rawPercent);
+                const strict = msg.mode === 'strict';
+                const topPx = Number.isFinite(msg.scrollTopPx) ? Math.max(0, Number(msg.scrollTopPx)) : 0;
+                const scrollEl = screenType === 'prompter'
+                    ? speakerScriptContent
+                    : (strict ? speakerScriptContent : speakerScriptBlock);
+                cur.scriptScrollPos = pct;
+                if (strict) cur.scriptScrollTopPx = topPx;
+                const smooth = msg.smooth !== false;
+                const durationMs =
+                    typeof msg.durationMs === 'number' && msg.durationMs > 0
+                        ? msg.durationMs
+                        : smooth
+                          ? 180
+                          : 0;
+                if (scrollEl) {
+                    scrollEl.dataset._scriptScrollIgnore = '1';
+                    if (screenType === 'prompter') {
+                        const max = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+                        const targetTop = strict
+                            ? (max * pct)
+                            : (max * pct);
+                        commitPrompterScrollNow(scrollEl, targetTop, max);
+                        updateSpeakerScriptProgressFill(max <= 0 ? 0 : Math.max(0, Math.min(targetTop, max)) / max);
+                        setTimeout(() => {
+                            scrollEl.dataset._scriptScrollIgnore = '0';
+                        }, 0);
+                        return;
+                    }
+                    if (strict) {
+                        const max = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+                        const targetTopForStrict = screenType === 'prompter'
+                            ? max * pct
+                            : Math.max(0, Math.min(topPx, max));
+                        const clampedTop = Math.max(0, Math.min(targetTopForStrict, max));
+                        scrollEl.scrollTop = clampedTop;
+                        updateSpeakerScriptProgressFill(max <= 0 ? 0 : clampedTop / max);
+                        requestAnimationFrame(() => {
+                            scrollEl.dataset._scriptScrollIgnore = '0';
+                        });
+                        return;
+                    }
+                    updateSpeakerScriptProgressFill(pct);
+                    if (!smooth) {
+                        requestAnimationFrame(() => {
+                            setSpeakerScriptScrollInstant(scrollEl, pct);
+                            requestAnimationFrame(() => {
+                                scrollEl.dataset._scriptScrollIgnore = '0';
+                            });
+                        });
+                    } else {
+                        smoothScrollSpeakerScriptToPercent(pct, durationMs, () => {
+                            scrollEl.dataset._scriptScrollIgnore = '0';
+                        });
+                    }
+                }
+                return;
+            }
+
+            if (msg.type === 'APPLY_THEME') {
+                applyThemeToScreen(msg.theme || 'dark');
+                return;
+            }
+
+            if (msg.type === 'APPLY_SPEAKER_CUSTOMIZATION') {
+                if (!window.lastState) {
+                    window.lastState = { actions: [], currentIndex: 0, speakerCustomization: null };
+                }
+                window.lastState.speakerCustomization = mergeSpeakerCustomization(msg.payload);
+                renderScreen(window.lastState);
+                return;
+            }
+
+            if (msg.type === 'INIT_STATE' || msg.type === 'STATE_UPDATE') {
+                window.lastState = msg.payload;
+                if (window.lastState?.uiTheme) {
+                    applyThemeToScreen(window.lastState.uiTheme);
+                }
+                renderScreen(window.lastState);
+                if (renderTickerId) {
+                    clearInterval(renderTickerId);
+                }
+                renderTickerId = setInterval(() => {
+                    syncFromOpener();
+                    if (window.lastState) {
+                        renderScreen(window.lastState);
+                    }
+                }, 1000);
+            }
+        });
+
+        function syncFromOpener() {
+            try {
+                if (!window.lastState && window.opener && window.opener.appState) {
+                    window.lastState = window.opener.appState;
+                    if (window.lastState?.uiTheme) {
+                        applyThemeToScreen(window.lastState.uiTheme);
+                    }
+                    renderScreen(window.lastState);
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        renderTickerId = setInterval(() => {
+            syncFromOpener();
+            if (window.lastState) {
+                renderScreen(window.lastState);
+            }
+        }, 1000);
+
+        const savedTheme = localStorage.getItem('app_theme');
+        applyThemeToScreen(savedTheme && Object.prototype.hasOwnProperty.call(SCREEN_THEMES, savedTheme) ? savedTheme : 'dark');
+        syncFromOpener();
+
+        let speakerScrollFromScreenRaf = null;
+        function handleSpeakerScrollFromScreen(sourceEl) {
+            if (screenType !== 'speaker') return;
+            if (!sourceEl || sourceEl.dataset._scriptScrollIgnore === '1') return;
+            if (speakerScrollFromScreenRaf) cancelAnimationFrame(speakerScrollFromScreenRaf);
+            speakerScrollFromScreenRaf = requestAnimationFrame(() => {
+                speakerScrollFromScreenRaf = null;
+                const st = window.lastState;
+                const cur = st && st.actions ? st.actions[st.currentIndex] : null;
+                if (!cur) return;
+                const strict = !!mergeSpeakerCustomization(st?.speakerCustomization).strictScriptSync;
+                const activeEl = strict ? speakerScriptContent : speakerScriptBlock;
+                if (activeEl !== sourceEl) return;
+                const p = getScrollPercent(sourceEl);
+                const px = sourceEl.scrollTop || 0;
+                cur.scriptScrollPos = p;
+                if (strict) cur.scriptScrollTopPx = px;
+                try {
+                    if (window.opener && !window.opener.closed) {
+                        window.opener.postMessage(
+                            { type: 'SPEAKER_SCROLL_SYNC', actionId: cur.id, mode: strict ? 'strict' : 'percent', scrollPercent: p, scrollTopPx: px },
+                            '*'
+                        );
+                    }
+                } catch (e) {
+                    // ignore
+                }
+            });
+        }
+        if (screenType === 'speaker') {
+            if (speakerScriptBlock) {
+                speakerScriptBlock.dataset._scriptScrollIgnore = speakerScriptBlock.dataset._scriptScrollIgnore || '0';
+                speakerScriptBlock.addEventListener('scroll', () => handleSpeakerScrollFromScreen(speakerScriptBlock), { passive: true });
+            }
+            if (speakerScriptContent) {
+                speakerScriptContent.dataset._scriptScrollIgnore = speakerScriptContent.dataset._scriptScrollIgnore || '0';
+                speakerScriptContent.addEventListener('scroll', () => handleSpeakerScrollFromScreen(speakerScriptContent), { passive: true });
+                if (typeof ResizeObserver !== 'undefined') {
+                    const ro = new ResizeObserver(() => {
+                        const st = window.lastState;
+                        const cur = st && st.actions ? st.actions[st.currentIndex] : null;
+                        if (!cur) return;
+                        const custom = mergeSpeakerCustomization(st?.speakerCustomization);
+                        if (!custom.strictScriptSync) return;
+                        const max = Math.max(0, speakerScriptContent.scrollHeight - speakerScriptContent.clientHeight);
+                        const p = max <= 0
+                            ? clampScriptScrollPos(typeof cur.scriptScrollPos === 'number' ? cur.scriptScrollPos : 0)
+                            : clampScriptScrollPos(speakerScriptContent.scrollTop / max);
+                        const nextTop = max * p;
+                        cur.scriptScrollPos = p;
+                        cur.scriptScrollTopPx = nextTop;
+                        speakerScriptContent.dataset._scriptScrollIgnore = '1';
+                        requestAnimationFrame(() => {
+                            speakerScriptContent.scrollTop = nextTop;
+                            speakerScriptContent.dataset._scriptScrollIgnore = '0';
+                            updateSpeakerScriptProgressFill(max <= 0 ? 0 : nextTop / max);
+                        });
+                    });
+                    ro.observe(speakerScriptContent);
+                }
+            }
+        }
+
+        let speakerResizeDebounce = null;
+        window.addEventListener('resize', () => {
+            if (speakerResizeDebounce) clearTimeout(speakerResizeDebounce);
+            speakerResizeDebounce = setTimeout(() => {
+                speakerResizeDebounce = null;
+                const st = window.lastState;
+                const cur = st && st.actions ? st.actions[st.currentIndex] : null;
+                if (!cur || !speakerScriptBlock) return;
+                const custom = mergeSpeakerCustomization(st?.speakerCustomization);
+                if (!custom.strictScriptSync) return;
+                const scrollEl = custom.strictScriptSync ? speakerScriptContent : speakerScriptBlock;
+                if (!scrollEl) return;
+                const max = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+                const p = clampScriptScrollPos(typeof cur.scriptScrollPos === 'number' ? cur.scriptScrollPos : getScrollPercent(scrollEl));
+                const nextTop = max * p;
+                cur.scriptScrollTopPx = nextTop;
+                scrollEl.dataset._scriptScrollIgnore = '1';
+                scrollEl.scrollTop = nextTop;
+                requestAnimationFrame(() => {
+                    scrollEl.dataset._scriptScrollIgnore = '0';
+                });
+                updateSpeakerScriptProgressFill(max <= 0 ? 0 : nextTop / max);
+            }, 120);
+        });
+    </script>
+</body>
+</html>
